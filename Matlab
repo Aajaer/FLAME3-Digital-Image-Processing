@@ -1,0 +1,45 @@
+dataDir = fullfile('C:','Users','javie','Documents','MATLAB','New_Output');
+imds = imageDatastore(dataDir,IncludeSubfolders=true, LabelSource = "foldernames", FileExtensions = '.png');
+
+% 80/20 Distribution
+[imdsTrain,imdsVal] = splitEachLabel(imds,0.8,'randomized');
+
+% DEfining CNN
+layers = [
+    imageInputLayer([224 224 1],'Name','input')
+
+    convolution2dLayer(3,8,'Padding','same','Name','conv1')
+    batchNormalizationLayer('Name','bn1')
+    reluLayer('Name','relu1')
+    maxPooling2dLayer(2,'Stride',2,'Name','pool1')
+
+    convolution2dLayer(3,16,'Padding','same','Name','conv2')
+    batchNormalizationLayer('Name','bn2')
+    reluLayer('Name','relu2')
+    maxPooling2dLayer(2,'Stride',2,'Name','pool2')
+
+    fullyConnectedLayer(numel(categories(imdsTrain.Labels)),'Name','fc')
+    softmaxLayer('Name','softmax')
+    classificationLayer('Name','classoutput')
+];
+
+% Training options
+options = trainingOptions('sgdm', ...
+    'MaxEpochs',10, ...
+    'InitialLearnRate',0.0001, ...
+    'ValidationData',imdsVal, ...
+    'Shuffle','every-epoch', ...
+    'Plots','training-progress');
+
+% Train
+trainnet = trainNetwork(imdsTrain, layers, options);
+
+%Confusion Matrix
+ConfPred = classify(trainnet, imdsVal);
+ConfTrue = imdsVal.Labels;
+
+figure('Name','Confusion Matrix','NumberTitle','off');
+cm = confusionchart(ConfTrue, ConfPred, ...
+    'Title','Validation Confusion Matrix', ...
+    'RowSummary','row-normalized', ...
+    'ColumnSummary','column-normalized');
