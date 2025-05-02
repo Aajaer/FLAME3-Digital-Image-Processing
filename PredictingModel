@@ -1,0 +1,9 @@
+load('trained_fire_model.mat');
+testImagePath = fullfile('C:','Users','javie','Documents','MATLAB','fire_2.jpg');
+Iorig = imread(testImagePath);
+
+I = imresize(Iorig, [224 224]);
+
+classlabels = classify(net, I);
+
+fprintf('Predicted: %s\n', classlabels);
