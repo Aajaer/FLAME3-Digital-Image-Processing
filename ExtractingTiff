@@ -1,0 +1,61 @@
+inputDir = fullfile('C:','Users','javie','Documents','MATLAB', 'CVSubset','FLAME 3 CV Dataset (Sycan Marsh)');
+outputDir = fullfile(getenv('USERPROFILE'), 'Documents', 'ImageProcessingOutput');
+Resize = [224 224];
+count = 0;
+
+% Gather the files
+files = [dir(fullfile(inputDir,'**','*.tif')); dir(fullfile(inputDir,'**','*.tiff'));dir(fullfile(inputDir,'**','*.jpg')); dir(fullfile(inputDir,'**','*.jpeg'))];
+
+for k = 1:numel(files)
+    f = files(k);
+    fullPath = fullfile(f.folder, f.name);
+    [~, nameOrig, ~] = fileparts(f.name);
+
+    % read image
+    img = imread(fullPath);
+
+    % convert to grayscale
+    if size(img,3) == 3
+        imgGray = rgb2gray(img);
+    else
+        imgGray = img;
+    end
+
+    %convert to 0 to 1 for conversion from 32 bit to 8bit
+    tempGray= mat2gray(imgGray); 
+    img8 = im2uint8(tempGray);
+
+    % adaptive histogram equalization
+    eqImg = adapthisteq(img8,'ClipLimit', 0.01, 'NumTiles', [8 8],'Distribution', 'rayleigh');
+
+    % FFT magnitude spectrum
+    FFTRes = abs( fftshift( fft2( double(eqImg) ) ) );
+    logFFT = log(1 + FFTRes);
+    normFFT = mat2gray(logFFT);
+
+    % Frequency masking removing math component
+    level = graythresh(normFFT);
+    binmask = imbinarize(normFFT, level);
+
+    % resize outputs
+    eqSmall = imresize(eqImg,Resize);
+    specSmall = imresize(normFFT,Resize);
+    maskSmall = imresize(binmask,Resize,'nearest');
+
+    % Save folders
+    saveDir = strrep(f.folder, inputDir, outputDir);
+    if ~exist(saveDir, 'dir')
+        mkdir(saveDir);
+    end
+
+
+    % write results
+    imwrite(eqSmall, fullfile(saveDir, [nameOrig '_equalized.png']));
+    imwrite(specSmall, fullfile(saveDir, [nameOrig '_fft.png']));
+    imwrite(maskSmall, fullfile(saveDir, [nameOrig '_hfmask.png']));
+
+    count = count + 1;
+    fprintf('saved %s_equalized.png\n', nameOrig);
+end
+
+fprintf('\nFinished. Successfully processed %d images.\n', count);
